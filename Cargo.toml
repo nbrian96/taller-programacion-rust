@@ -1,0 +1,12 @@
+[package]
+name = "minikv"
+version = "1.0.0"
+edition = "2024"
+description = "Mini key-value store persistente con log y snapshots"
+authors = ["Taller de Programacion"]
+
+[[bin]]
+name = "minikv"
+path = "src/main.rs"
+
+[dependencies]

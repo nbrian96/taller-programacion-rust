@@ -1,0 +1,8 @@
+"key_only_test" "value with spaces"
+"clave1" "valor11"
+"clave 1" "valor 1"
+"brian " "dev full"
+"clave \"A\"" "valor \"A\""
+"key_only" "value_only"
+"key with spaces" "value_only"
+"clave con espacios" "valor con espacios"
