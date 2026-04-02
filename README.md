@@ -33,14 +33,36 @@ cargo test store
 cargo test log
 
 # Verificar warnings y lints
+# Existen diferentes niveles y grupos de lints en Clippy:
+
+# 1. Básico: Convierte todos los warnings estándar en errores
 cargo clippy -- -D warnings
+
+# 2. Indexación Segura: Prohíbe indexar con [n] que puede causar panics
+cargo clippy -- -D clippy::indexing-slicing
+
+# 3. Estilo Moderno: Sugiere usar `let else` en lugar de `match` simple
+cargo clippy -- -D clippy::manual-let-else
+
+# 4. Pedante: Nivel muy estricto para máxima calidad de código
+# (Aviso: Suele requerir muchos cambios en documentación y estilo)
+cargo clippy -- -D clippy::pedantic
+
+# Otros grupos útiles (opcionales):
+# -- -D clippy::perf         -> Enfocado en rendimiento
+# -- -D clippy::complexity   -> Enfocado en simplificar código
+# -- -D clippy::style        -> Enfocado en legibilidad y convenciones
 
 # Formatear código
 cargo fmt
 
 # Generar documentación
 cargo doc --open
+
+# Generar entregable
+zip -r entrega.zip Cargo.toml Cargo.lock src/ tests/
 ```
+
 
 ---
 

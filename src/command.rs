@@ -1,4 +1,29 @@
 use crate::item::Item;
+use std::str::FromStr;
+
+/// Representa el tipo de comando (sin sus argumentos).
+#[derive(Debug, PartialEq)]
+pub enum CommandType {
+    Set,
+    Get,
+    Length,
+    Snapshot,
+}
+
+/// Implementación de FromStr para CommandType.
+impl FromStr for CommandType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "set" => Ok(CommandType::Set),
+            "get" => Ok(CommandType::Get),
+            "length" => Ok(CommandType::Length),
+            "snapshot" => Ok(CommandType::Snapshot),
+            _ => Err("ERROR: UNKNOWN COMMAND".to_string()),
+        }
+    }
+}
 
 /// Representa los comandos que el sistema puede ejecutar.
 #[derive(Debug)]
@@ -16,46 +41,55 @@ pub enum Command {
 impl Command {
     /// Analiza una lista de argumentos y retorna el comando correspondiente.
     pub fn analyze_command(args: &[String]) -> Result<Command, String> {
-        if args.is_empty() {
-            return Err("ERROR: UNKNOWN COMMAND".to_string());
-        }
+        let cmd_str = args.first().ok_or("ERROR: UNKNOWN COMMAND")?;
+        let cmd_type: CommandType = cmd_str.parse()?;
 
-        let cmd = &args[0];
-        match cmd.as_str() {
-            "length" => {
-                if args.len() == 1 {
-                    Ok(Command::Length)
-                } else {
-                    Err("ERROR: EXTRA ARGUMENT".to_string())
-                }
-            }
-            "snapshot" => {
-                if args.len() == 1 {
-                    Ok(Command::Snapshot)
-                } else {
-                    Err("ERROR: EXTRA ARGUMENT".to_string())
-                }
-            }
-            "get" => match args.len() {
-                1 => Err("ERROR: MISSING ARGUMENT".to_string()),
-                2 => Ok(Command::Get {
-                    key: args[1].to_string(),
-                }),
-                _ => Err("ERROR: EXTRA ARGUMENT".to_string()),
-            },
-            "set" => match args.len() {
-                1 => Err("ERROR: MISSING ARGUMENT".to_string()),
-                2 => Ok(Command::Set {
-                    key: args[1].to_string(),
-                    value: None,
-                }),
-                3 => Ok(Command::Set {
-                    key: args[1].to_string(),
-                    value: Some(args[2].to_string()),
-                }),
-                _ => Err("ERROR: EXTRA ARGUMENT".to_string()),
-            },
-            _ => Err("ERROR: UNKNOWN COMMAND".to_string()),
+        match cmd_type {
+            CommandType::Length => Self::parse_length(args),
+            CommandType::Snapshot => Self::parse_snapshot(args),
+            CommandType::Get => Self::parse_get(args),
+            CommandType::Set => Self::parse_set(args),
+        }
+    }
+
+    fn parse_length(args: &[String]) -> Result<Command, String> {
+        if args.len() == 1 {
+            Ok(Command::Length)
+        } else {
+            Err("ERROR: EXTRA ARGUMENT".to_string())
+        }
+    }
+
+    fn parse_snapshot(args: &[String]) -> Result<Command, String> {
+        if args.len() == 1 {
+            Ok(Command::Snapshot)
+        } else {
+            Err("ERROR: EXTRA ARGUMENT".to_string())
+        }
+    }
+
+    fn parse_get(args: &[String]) -> Result<Command, String> {
+        match args.len() {
+            1 => Err("ERROR: MISSING ARGUMENT".to_string()),
+            2 => Ok(Command::Get {
+                key: args.get(1).ok_or("ERROR: MISSING ARGUMENT")?.to_string(),
+            }),
+            _ => Err("ERROR: EXTRA ARGUMENT".to_string()),
+        }
+    }
+
+    fn parse_set(args: &[String]) -> Result<Command, String> {
+        match args.len() {
+            1 => Err("ERROR: MISSING ARGUMENT".to_string()),
+            2 => Ok(Command::Set {
+                key: args.get(1).ok_or("ERROR: MISSING ARGUMENT")?.to_string(),
+                value: None,
+            }),
+            3 => Ok(Command::Set {
+                key: args.get(1).ok_or("ERROR: MISSING ARGUMENT")?.to_string(),
+                value: Some(args.get(2).ok_or("ERROR: MISSING ARGUMENT")?.to_string()),
+            }),
+            _ => Err("ERROR: EXTRA ARGUMENT".to_string()),
         }
     }
 

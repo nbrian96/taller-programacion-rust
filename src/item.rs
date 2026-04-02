@@ -1,3 +1,4 @@
+use crate::command::CommandType;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -70,8 +71,8 @@ impl Item {
             return Ok(());
         }
 
-        let mut line = args[0].to_string();
-        for s in &args[1..] {
+        let mut line = args.first().ok_or("ERROR")?.to_string();
+        for s in args.iter().skip(1) {
             line.push(' ');
             line.push('"');
             line.push_str(&s.replace('\\', "\\\\").replace('"', "\\\""));
@@ -90,11 +91,19 @@ impl Item {
             for l in reader.lines().map_while(Result::ok) {
                 let line_args = Self::split_line(&l);
 
-                match line_args.as_slice() {
-                    [cmd, k, v] if cmd == "set" => {
+                let cmd_res: Result<CommandType, String> = line_args
+                    .first()
+                    .ok_or("ERROR: INVALID LOG FILE".to_string())?
+                    .parse();
+                let Ok(cmd_type) = cmd_res else {
+                    return Err("ERROR: INVALID LOG FILE".to_string());
+                };
+
+                match (cmd_type, line_args.as_slice()) {
+                    (CommandType::Set, [_, k, v]) => {
                         items.insert(k.to_string(), v.to_string());
                     }
-                    [cmd, k] if cmd == "set" => {
+                    (CommandType::Set, [_, k]) => {
                         items.remove(k);
                     }
                     _ => return Err("ERROR: INVALID LOG FILE".to_string()),
