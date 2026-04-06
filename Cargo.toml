@@ -6,7 +6,11 @@ description = "Mini key-value store persistente con log y snapshots"
 authors = ["Taller de Programacion"]
 
 [[bin]]
-name = "minikv"
-path = "src/main.rs"
+name = "minikv-server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "minikv-client"
+path = "src/bin/client.rs"
 
 [dependencies]

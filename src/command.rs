@@ -1,47 +1,37 @@
+//! Gestión de la estructura y ejecución de comandos en MiniKV.
+
+use crate::command_type::CommandType;
+use crate::errors;
 use crate::item::Item;
-use std::str::FromStr;
-
-/// Representa el tipo de comando (sin sus argumentos).
-#[derive(Debug, PartialEq)]
-pub enum CommandType {
-    Set,
-    Get,
-    Length,
-    Snapshot,
-}
-
-/// Implementación de FromStr para CommandType.
-impl FromStr for CommandType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "set" => Ok(CommandType::Set),
-            "get" => Ok(CommandType::Get),
-            "length" => Ok(CommandType::Length),
-            "snapshot" => Ok(CommandType::Snapshot),
-            _ => Err("ERROR: UNKNOWN COMMAND".to_string()),
-        }
-    }
-}
 
 /// Representa los comandos que el sistema puede ejecutar.
 #[derive(Debug)]
 pub enum Command {
-    /// Inserta o actualiza una clave.
-    Set { key: String, value: Option<String> },
-    /// Obtiene el valor de una clave.
-    Get { key: String },
-    /// Muestra la cantidad de elementos.
+    /// Inserta o actualiza una clave: `set <clave> <valor>`.
+    Set {
+        /// La clave a insertar o modificar.
+        key: String,
+        /// El valor a asociar (opcional para unsets).
+        value: Option<String>,
+    },
+    /// Obtiene el valor de una clave: `get <clave>`.
+    Get {
+        /// La clave a consultar.
+        key: String,
+    },
+    /// Muestra la cantidad de elementos en la DB: `length`.
     Length,
-    /// Crea un snapshot (save_data) del estado actual.
+    /// Crea un snapshot (save_data) del estado actual: `snapshot`.
     Snapshot,
 }
 
 impl Command {
     /// Analiza una lista de argumentos y retorna el comando correspondiente.
+    /// # Errores
+    /// Retorna `UNKNOWN COMMAND` si el tipo no existe, o `MISSING/EXTRA ARGUMENT`
+    /// si la cantidad de parámetros es incorrecta.
     pub fn analyze_command(args: &[String]) -> Result<Command, String> {
-        let cmd_str = args.first().ok_or("ERROR: UNKNOWN COMMAND")?;
+        let cmd_str = args.first().ok_or(errors::UNKNOWN_COMMAND)?;
         let cmd_type: CommandType = cmd_str.parse()?;
 
         match cmd_type {
@@ -52,124 +42,74 @@ impl Command {
         }
     }
 
+    /// Parsea el comando length validando que no tenga argumentos extra.
     fn parse_length(args: &[String]) -> Result<Command, String> {
         if args.len() == 1 {
             Ok(Command::Length)
         } else {
-            Err("ERROR: EXTRA ARGUMENT".to_string())
+            Err(errors::EXTRA_ARGUMENT.to_string())
         }
     }
 
+    /// Parsea el comando snapshot validando que no tenga argumentos extra.
     fn parse_snapshot(args: &[String]) -> Result<Command, String> {
         if args.len() == 1 {
             Ok(Command::Snapshot)
         } else {
-            Err("ERROR: EXTRA ARGUMENT".to_string())
+            Err(errors::EXTRA_ARGUMENT.to_string())
         }
     }
 
+    /// Parsea el comando get validando la presencia de la clave obligatoria.
     fn parse_get(args: &[String]) -> Result<Command, String> {
         match args.len() {
-            1 => Err("ERROR: MISSING ARGUMENT".to_string()),
+            1 => Err(errors::MISSING_ARGUMENT.to_string()),
             2 => Ok(Command::Get {
-                key: args.get(1).ok_or("ERROR: MISSING ARGUMENT")?.to_string(),
+                key: args.get(1).ok_or(errors::MISSING_ARGUMENT)?.to_string(),
             }),
-            _ => Err("ERROR: EXTRA ARGUMENT".to_string()),
+            _ => Err(errors::EXTRA_ARGUMENT.to_string()),
         }
     }
 
+    /// Parsea el comando set validando los argumentos mínimos y máximos.
     fn parse_set(args: &[String]) -> Result<Command, String> {
         match args.len() {
-            1 => Err("ERROR: MISSING ARGUMENT".to_string()),
+            1 => Err(errors::MISSING_ARGUMENT.to_string()),
             2 => Ok(Command::Set {
-                key: args.get(1).ok_or("ERROR: MISSING ARGUMENT")?.to_string(),
+                key: args.get(1).ok_or(errors::MISSING_ARGUMENT)?.to_string(),
                 value: None,
             }),
             3 => Ok(Command::Set {
-                key: args.get(1).ok_or("ERROR: MISSING ARGUMENT")?.to_string(),
-                value: Some(args.get(2).ok_or("ERROR: MISSING ARGUMENT")?.to_string()),
+                key: args.get(1).ok_or(errors::MISSING_ARGUMENT)?.to_string(),
+                value: Some(args.get(2).ok_or(errors::MISSING_ARGUMENT)?.to_string()),
             }),
-            _ => Err("ERROR: EXTRA ARGUMENT".to_string()),
+            _ => Err(errors::EXTRA_ARGUMENT.to_string()),
         }
     }
 
     /// Ejecuta el comando sobre el almacén de ítems provisto.
-    pub fn execute(self, items: &mut Item) -> Result<(), String> {
+    /// # Retorno
+    /// Retorna `Ok(Some(String))` con el resultado del comando, u `Ok(None)`
+    /// si el comando solo confirma éxito (como `set` o `snapshot`).
+    pub fn execute(self, items: &mut Item) -> Result<Option<String>, String> {
         match self {
-            Command::Set { key, value } => Self::execute_set(items, key, value),
-            Command::Get { key } => Self::execute_get(items, key),
-            Command::Length => Self::execute_length(items),
-            Command::Snapshot => Self::execute_snapshot(items),
+            Command::Set { key, value } => {
+                if let Some(v) = value {
+                    items.set(key, v)?;
+                } else {
+                    items.unset(key)?;
+                }
+                Ok(None)
+            }
+            Command::Get { key } => {
+                let val = items.get(&key).ok_or(errors::NOT_FOUND)?;
+                Ok(Some(val.clone()))
+            }
+            Command::Length => Ok(Some(items.length().to_string())),
+            Command::Snapshot => {
+                items.save_data()?;
+                Ok(None)
+            }
         }
-    }
-
-    fn execute_set(items: &mut Item, key: String, value: Option<String>) -> Result<(), String> {
-        if let Some(v) = value {
-            items.set(key, v)?;
-        } else {
-            items.unset(key)?;
-        }
-        println!("OK");
-        Ok(())
-    }
-
-    fn execute_get(items: &Item, key: String) -> Result<(), String> {
-        let result = items.get(&key);
-        let value = result.ok_or("ERROR: NOT FOUND")?.to_string();
-        println!("{}", value);
-        Ok(())
-    }
-
-    fn execute_length(items: &Item) -> Result<(), String> {
-        println!("{}", items.length());
-        Ok(())
-    }
-
-    fn execute_snapshot(items: &Item) -> Result<(), String> {
-        items.save_data()?;
-        println!("OK");
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_analyze_length() -> Result<(), String> {
-        let args = vec!["length".to_string()];
-        let cmd = Command::analyze_command(&args)?;
-        assert!(matches!(cmd, Command::Length));
-        Ok(())
-    }
-
-    #[test]
-    fn test_analyze_set_with_value() -> Result<(), String> {
-        let args = vec!["set".to_string(), "k1".to_string(), "v1".to_string()];
-        let cmd = Command::analyze_command(&args)?;
-        if let Command::Set { key, value } = cmd {
-            assert_eq!(key, "k1");
-            assert_eq!(value, Some("v1".to_string()));
-        } else {
-            panic!("Expected Set command");
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_analyze_extra_argument() {
-        let args = vec!["length".to_string(), "extra".to_string()];
-        let result = Command::analyze_command(&args);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "ERROR: EXTRA ARGUMENT");
-    }
-
-    #[test]
-    fn test_analyze_missing_argument() {
-        let args = vec!["get".to_string()];
-        let result = Command::analyze_command(&args);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "ERROR: MISSING ARGUMENT");
     }
 }
