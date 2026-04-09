@@ -7,7 +7,7 @@ use minikv::errors;
 use minikv::item::Item;
 
 use std::env::args;
-use std::io::{BufRead, BufReader, Write, stdin};
+use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -41,32 +41,12 @@ fn server_run(address: &str) -> Result<(), String> {
     let items = Item::new()?;
     let shared_db = Arc::new(Mutex::new(items));
 
-    let shared_db_clone = Arc::clone(&shared_db);
-    let listener_clone = listener
-        .try_clone()
-        .map_err(|_| errors::SERVER_SOCKET_BINDING.to_string())?;
-
-    thread::spawn(move || {
-        for stream in listener_clone.incoming() {
-            match stream {
-                Ok(client_stream) => {
-                    spawn_client_handler(client_stream, Arc::clone(&shared_db_clone))
-                }
-                Err(_) => println!("ERROR \"{}\"", errors::CONNECTION_CLOSED),
-            }
+    for stream in listener.incoming() {
+        match stream {
+            Ok(client_stream) => spawn_client_handler(client_stream, Arc::clone(&shared_db)),
+            Err(_) => println!("ERROR \"{}\"", errors::CONNECTION_CLOSED),
         }
-    });
-
-    let mut buffer = String::new();
-    let mut stdin_reader = BufReader::new(stdin());
-
-    while let Ok(n) = stdin_reader.read_line(&mut buffer) {
-        if n == 0 {
-            break;
-        }
-        buffer.clear();
     }
-
     Ok(())
 }
 
