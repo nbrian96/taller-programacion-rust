@@ -193,3 +193,4 @@ cargo run --bin minikv-client -- <dirección>
 cargo clean
 ```
 
+zip -r entrega.zip Cargo.toml Cargo.lock src/ tests/

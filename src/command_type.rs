@@ -31,3 +31,29 @@ impl FromStr for CommandType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_type_from_str() {
+        assert_eq!("set".parse::<CommandType>().unwrap(), CommandType::Set);
+        assert_eq!("get".parse::<CommandType>().unwrap(), CommandType::Get);
+        assert_eq!(
+            "length".parse::<CommandType>().unwrap(),
+            CommandType::Length
+        );
+        assert_eq!(
+            "snapshot".parse::<CommandType>().unwrap(),
+            CommandType::Snapshot
+        );
+    }
+
+    #[test]
+    fn test_command_type_from_str_invalid() {
+        let res = "invalid".parse::<CommandType>();
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), errors::UNKNOWN_COMMAND);
+    }
+}

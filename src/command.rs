@@ -27,7 +27,6 @@ pub enum Command {
 
 impl Command {
     /// Analiza una lista de argumentos y retorna el comando correspondiente.
-    /// # Errores
     /// Retorna `UNKNOWN COMMAND` si el tipo no existe, o `MISSING/EXTRA ARGUMENT`
     /// si la cantidad de parámetros es incorrecta.
     pub fn analyze_command(args: &[String]) -> Result<Command, String> {
@@ -88,7 +87,6 @@ impl Command {
     }
 
     /// Ejecuta el comando sobre el almacén de ítems provisto.
-    /// # Retorno
     /// Retorna `Ok(Some(String))` con el resultado del comando, u `Ok(None)`
     /// si el comando solo confirma éxito (como `set` o `snapshot`).
     pub fn execute(self, items: &mut Item) -> Result<Option<String>, String> {
@@ -111,5 +109,49 @@ impl Command {
                 Ok(None)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_analyze_command_get_valid() {
+        let args = vec!["get".to_string(), "mi_clave".to_string()];
+        let cmd = Command::analyze_command(&args).unwrap();
+        if let Command::Get { key } = cmd {
+            assert_eq!(key, "mi_clave");
+        } else {
+            panic!("Debería ser Command::Get");
+        }
+    }
+
+    #[test]
+    fn test_analyze_command_set_valid() {
+        let args = vec!["set".to_string(), "k".to_string(), "v".to_string()];
+        let cmd = Command::analyze_command(&args).unwrap();
+        if let Command::Set { key, value } = cmd {
+            assert_eq!(key, "k");
+            assert_eq!(value, Some("v".to_string()));
+        } else {
+            panic!("Debería ser Command::Set");
+        }
+    }
+
+    #[test]
+    fn test_analyze_command_missing_arg() {
+        let args = vec!["get".to_string()];
+        let res = Command::analyze_command(&args);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), errors::MISSING_ARGUMENT);
+    }
+
+    #[test]
+    fn test_analyze_command_extra_arg() {
+        let args = vec!["length".to_string(), "algo_mas".to_string()];
+        let res = Command::analyze_command(&args);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), errors::EXTRA_ARGUMENT);
     }
 }
